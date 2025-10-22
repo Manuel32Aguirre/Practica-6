@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Menús — UI</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:20px;background:#f6f8fb;color:#222}
+    h1{margin:0 0 12px}
+    #status{margin-bottom:12px;color:#555}
+    #menu-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+    .card{background:white;border-radius:8px;padding:12px;box-shadow:0 1px 4px rgba(20,30,50,.08)}
+    .card h3{margin:0 0 6px;font-size:1.05rem}
+    .meta{font-size:.9rem;color:#666;margin-bottom:6px}
+    .precio{font-weight:600;color:#0b6}
+    .ingredientes{font-size:.9rem;color:#444}
+    .empty{color:#777}
+  </style>
+</head>
+<body>
+  <h1>Menús</h1>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+    <label for="menu-id">Buscar por ID:</label>
+    <input id="menu-id" type="number" min="1" placeholder="Escribe ID" style="width:100px;padding:6px;border-radius:4px;border:1px solid #ddd" />
+    <button id="btn-search" style="padding:6px 10px;border-radius:6px;border:0;background:#0b6;color:white;cursor:pointer">Buscar</button>
+    <button id="btn-refresh" style="padding:6px 10px;border-radius:6px;border:0;background:#888;color:white;cursor:pointer">Refrescar lista</button>
+  </div>
+  <div id="status">Cargando...</div>
+  <div id="menu-list" aria-live="polite"></div>
+  <div id="single-result" style="margin-top:16px"></div>
+
+  <script>
+    // URL absoluta para evitar problemas si el archivo se abre desde file://
+    const API_URL = 'http://127.0.0.1:8080/api/menu';
+    const statusEl = document.getElementById('status');
+    const listEl = document.getElementById('menu-list');
+
+    function escapeHtml(s){
+      return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]);
+    }
+
+    function renderEmpty(){
+      statusEl.textContent = 'No hay items para mostrar.';
+      listEl.innerHTML = '<p class="empty">Aún no se han creado menús.</p>';
+    }
+
+    function renderSingle(menu){
+      const target = document.getElementById('single-result');
+      if(!menu){
+        target.innerHTML = '<p class="empty">No encontrado.</p>';
+        return;
+      }
+      target.innerHTML = `\
+        <h2>Resultado ID ${escapeHtml(menu.id)}</h2>\
+        <div class="card">\
+          <h3>${escapeHtml(menu.nombre)} <span class="precio">${menu.precio ?? ''}</span></h3>\
+          <div class="meta">Tipo: ${escapeHtml(menu.tipo)} — Costo: ${menu.costo ?? ''}</div>\
+          <div class="ingredientes">${escapeHtml(menu.ingredientes || '')}</div>\
+        </div>`;
+    }
+
+    function fetchList(){
+      statusEl.textContent = 'Cargando...';
+      listEl.innerHTML = '';
+      fetch(API_URL, {cache: 'no-store'})
+      .then(resp => {
+        if(!resp.ok) throw new Error(resp.status + ' ' + resp.statusText);
+        return resp.json();
+      })
+      .then(data => {
+        if(!Array.isArray(data) || data.length === 0){ renderEmpty(); return; }
+        statusEl.textContent = `Mostrando ${data.length} elementos`;
+        listEl.innerHTML = data.map(m => `\
+          <article class="card">\
+            <h3>${escapeHtml(m.nombre)} <span class="precio">${m.precio ?? ''}</span></h3>\
+            <div class="meta">Tipo: ${escapeHtml(m.tipo)} — Costo: ${m.costo ?? ''}</div>\
+            <div class="ingredientes">${escapeHtml(m.ingredientes || '')}</div>\
+          </article>`).join('');
+      })
+      .catch(err => {
+        statusEl.textContent = 'Error al cargar: ' + err.message;
+        listEl.innerHTML = '<p class="empty">Asegúrate de que la API esté corriendo en http://127.0.0.1:8080</p>';
+        console.error(err);
+      });
+    }
+
+    // single item fetch
+    function fetchById(id){
+      const target = document.getElementById('single-result');
+      target.innerHTML = '<p class="empty">Cargando...</p>';
+      fetch(`${API_URL}/${encodeURIComponent(id)}`, {cache: 'no-store'})
+        .then(resp => {
+          if(resp.status === 404) return null;
+          if(!resp.ok) throw new Error(resp.status + ' ' + resp.statusText);
+          return resp.json();
+        })
+        .then(data => {
+          renderSingle(data);
+        })
+        .catch(err => {
+          target.innerHTML = '<p class="empty">Error al buscar: ' + escapeHtml(err.message) + '</p>';
+          console.error(err);
+        });
+    }
+
+    document.getElementById('btn-search').addEventListener('click', ()=>{
+      const val = document.getElementById('menu-id').value;
+      const id = parseInt(val, 10);
+      if(!id || id < 1){ alert('Introduce un ID válido (número entero mayor que 0)'); return; }
+      fetchById(id);
+    });
+
+    document.getElementById('btn-refresh').addEventListener('click', ()=>{
+      fetchList();
+    });
+
+    // initial load
+    fetchList();
+  </script>
+</body>
+</html>
