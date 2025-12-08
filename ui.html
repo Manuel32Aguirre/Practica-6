@@ -30,8 +30,10 @@
   <div id="single-result" style="margin-top:16px"></div>
 
   <script>
-    // URL absoluta para evitar problemas si el archivo se abre desde file://
-    const API_URL = 'http://127.0.0.1:8080/api/menu';
+    // --- CAMBIO IMPORTANTE: Usamos ruta relativa ---
+    // Al quitar el "http://...", el navegador buscará en el mismo dominio actual.
+    const API_URL = '/api/menu'; 
+    
     const statusEl = document.getElementById('status');
     const listEl = document.getElementById('menu-list');
 
@@ -79,7 +81,8 @@
       })
       .catch(err => {
         statusEl.textContent = 'Error al cargar: ' + err.message;
-        listEl.innerHTML = '<p class="empty">Asegúrate de que la API esté corriendo en http://127.0.0.1:8080</p>';
+        // Mensaje de error más genérico
+        listEl.innerHTML = '<p class="empty">Error de conexión con la API.</p>';
         console.error(err);
       });
     }
